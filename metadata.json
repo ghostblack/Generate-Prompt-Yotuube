@@ -1,0 +1,5 @@
+{
+  "name": "Cat Meme Factory",
+  "description": "A generator for viral cat meme concepts, creating prompts for AI image/video generators and CapCut captions.",
+  "requestFramePermissions": []
+}

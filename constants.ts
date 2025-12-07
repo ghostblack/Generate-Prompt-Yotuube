@@ -67,9 +67,34 @@ export const MEME_DATA: MemeElements = {
   ],
   kidActivities: [
     {
-      label: "Head Bump Love",
-      startDescription: "sitting calmly next to a crawling baby on a soft rug",
-      endDescription: "gently bumping its head against the baby's forehead in a sign of affection"
+      label: "High Chair Heist",
+      startDescription: "sitting under the high chair looking up with big eyes while the baby eats",
+      endDescription: "catching a piece of broccoli the baby secretly drops for them, looking like partners in crime"
+    },
+    {
+      label: "Plushie Tug-of-War",
+      startDescription: "biting one leg of a teddy bear while the toddler pulls the other leg",
+      endDescription: "gently falling over as the toddler lets go, hugging the bear victoriously"
+    },
+    {
+      label: "Vacuum Monster Scare",
+      startDescription: "both the cat and toddler standing frozen looking at a vacuum cleaner",
+      endDescription: "both scrambling together to hide under the exact same blanket on the sofa"
+    },
+    {
+      label: "The Box Battle",
+      startDescription: "trying to fit into a cardboard box that the baby is already sitting inside",
+      endDescription: "squeezing in successfully so they are both squished together cheek-to-cheek"
+    },
+    {
+      label: "Laser Master",
+      startDescription: "watching a red dot move erratically on the wall",
+      endDescription: "pouncing on the dot, revealing the toddler is the one holding the laser pointer and laughing"
+    },
+    {
+      label: "Soft Boxing Match",
+      startDescription: "standing on hind legs gently tapping the baby's hands with soft paws",
+      endDescription: "lightly bapping the baby's nose, causing the baby to giggle uncontrollably"
     },
     {
       label: "Nap Protectors",
@@ -77,34 +102,9 @@ export const MEME_DATA: MemeElements = {
       endDescription: "curling up tightly right next to the toddler's back to sleep together"
     },
     {
-      label: "Tail Toy",
-      startDescription: "laying on the sofa while a baby reaches for its fluffy tail",
-      endDescription: "gently moving its tail just out of reach, playing a slow game with the baby"
-    },
-    {
-      label: "Sharing Milk",
-      startDescription: "staring intensely at a baby holding a milk bottle",
-      endDescription: "carefully trying to lick the milk bottle while the baby laughs"
-    },
-    {
-      label: "Paws & Hands",
-      startDescription: "sitting on a window sill while a child places their hand on the glass",
-      endDescription: "placing its paw directly on the glass matching the child's hand"
-    },
-    {
-      label: "Belly Pillow",
-      startDescription: "laying on its back exposing a fluffy belly",
-      endDescription: "accepting the baby resting their head on the fluffy belly like a pillow"
-    },
-    {
-      label: "Reading Buddy",
-      startDescription: "sitting on the open pages of a storybook a child is reading",
-      endDescription: "pawing at the colorful pictures in the book while the child points"
-    },
-    {
-      label: "Blanket Burrito",
-      startDescription: "peeking out from under a blanket fort built by a child",
-      endDescription: "pouncing softly on the child's moving feet under the blanket"
+      label: "Window Watchers",
+      startDescription: "toddler standing at a low window with hands on glass",
+      endDescription: "standing on hind legs right next to the toddler, both looking at a bird outside"
     }
   ],
   costumes: [
@@ -156,15 +156,15 @@ export const MEME_DATA: MemeElements = {
     "Grace: 0/10, Cuteness: 10/10"
   ],
   kidOverlayTexts: [
-    "Best friends forever ❤️",
-    "My heart just melted 🥺",
-    "The purest bond",
-    "My tiny bodyguard",
-    "Cuteness overload",
+    "Partners in crime 😈❤️",
+    "Who started it? 😂",
+    "The ultimate battle",
+    "Shared brain cell moment",
+    "My tiny bodyguards",
     "Wait for the hug...",
-    "POV: You are loved",
+    "Siblings will be siblings",
     "Nothing sweeter than this",
-    "Growing up together",
-    "Peaceful moments ✨"
+    "Teamwork makes the dream work",
+    "Too cute to handle"
   ]
 };

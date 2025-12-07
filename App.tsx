@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { GoogleGenAI, Type, SchemaShared } from "@google/genai";
-import { Cat, Sparkles, Settings2, Image as ImageIcon, Video, Baby, Laugh, Wand2, Youtube, Hash, FileText, Loader2, AlertTriangle } from 'lucide-react';
+import { Cat, Sparkles, Settings2, Image as ImageIcon, Video, Baby, Laugh, Wand2, Youtube, Hash, FileText, Loader2, AlertTriangle, Play, Download } from 'lucide-react';
 import { MEME_DATA } from './constants';
 import { GeneratedResult, SelectionState, SelectionCategory, ThemeType } from './types';
 import { ResultCard } from './components/ResultCard';
@@ -9,7 +9,10 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<'auto' | 'manual'>('auto');
   const [theme, setTheme] = useState<ThemeType>('funny');
   const [isLoading, setIsLoading] = useState(false);
+  const [isVideoGenerating, setIsVideoGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState<string>('');
   const [result, setResult] = useState<GeneratedResult | null>(null);
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   const [manualSelection, setManualSelection] = useState<SelectionState>({
@@ -25,6 +28,15 @@ const App: React.FC = () => {
 
   const getRandomItem = (arr: any[]) => arr[Math.floor(Math.random() * arr.length)];
 
+  // Helper to initialize AI
+  const getAIClient = () => {
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      throw new Error("API Key is missing. Please set API_KEY in your environment variables.");
+    }
+    return new GoogleGenAI({ apiKey: apiKey });
+  };
+
   const generateAIConcept = async (): Promise<{
     catType: string;
     startDescription: string;
@@ -35,17 +47,11 @@ const App: React.FC = () => {
     overlayText: string;
   } | null> => {
     try {
-      // Initialize inside the function to avoid crash on app load if key is missing
-      const apiKey = process.env.API_KEY;
-      if (!apiKey) {
-        throw new Error("API Key is missing. Please set API_KEY in your environment variables.");
-      }
-      
-      const ai = new GoogleGenAI({ apiKey: apiKey });
+      const ai = getAIClient();
 
       const themePrompt = theme === 'funny' 
         ? `Create a scenario for a cat video that is realistic, cute, but involves physical comedy, clumsy mishap, or a sudden funny event (e.g. falling, slipping, getting stuck, startling). Focus on "Cat Logic".`
-        : `Create a scenario for a WHOLESOME and CUTE video featuring a CAT and a BABY/TODDLER. Focus on gentle interactions, cuddling, playing, or protecting. Pure heartwarming content.`;
+        : `Create a scenario for a WHOLESOME and CUTE video featuring a CAT and a BABY/TODDLER. Focus on dynamic interactions like playing together, playful rivalry (stealing toys), harmless little fights, shared fear (e.g. vacuum), or mimicking each other. It should be adorable but lively.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -59,7 +65,7 @@ const App: React.FC = () => {
           2. Keep the visual style photorealistic and high quality.
           3. The cat type should be specific.
           4. If theme is 'funny': Make it a fail or funny moment.
-          5. If theme is 'cute': Ensure the child interaction is safe and adorable.
+          5. If theme is 'cute': Ensure the child interaction is safe but can be playful, messy, or mildly chaotic (in a cute way).
           
           Return JSON format.`,
           responseMimeType: "application/json",
@@ -84,10 +90,8 @@ const App: React.FC = () => {
       return JSON.parse(text);
     } catch (err: any) {
       console.error("AI Generation failed:", err);
-      // If error is related to API Key, show it. Otherwise fall back to manual.
       if (err.message && (err.message.includes("API Key") || err.message.includes("API_KEY"))) {
          setError(err.message);
-         // Don't fallback if it's a configuration error
          throw err; 
       }
       return null;
@@ -97,6 +101,7 @@ const App: React.FC = () => {
   const generateMeme = async () => {
     setIsLoading(true);
     setError(null);
+    setGeneratedVideoUrl(null); // Reset video when regenerating text
     let cat, startDesc, endDesc, cost, loc, style, text;
 
     try {
@@ -112,7 +117,6 @@ const App: React.FC = () => {
           style = aiResult.visualStyle;
           text = aiResult.overlayText;
         } else {
-          // Fallback logic handled below if AI returns null without throwing config error
           cat = getRandomItem(MEME_DATA.catTypes);
           const activitiesList = theme === 'funny' ? MEME_DATA.activities : MEME_DATA.kidActivities;
           const actData = getRandomItem(activitiesList);
@@ -124,12 +128,9 @@ const App: React.FC = () => {
           text = theme === 'funny' ? getRandomItem(MEME_DATA.overlayTexts) : getRandomItem(MEME_DATA.kidOverlayTexts);
         }
       } else {
-        // Manual Mode
         cat = manualSelection.catTypes;
-        
         const activitiesList = theme === 'funny' ? MEME_DATA.activities : MEME_DATA.kidActivities;
         const selectedAct = activitiesList.find(a => a.label === manualSelection.activities) || activitiesList[0];
-        
         startDesc = selectedAct.startDescription;
         endDesc = selectedAct.endDescription;
         cost = manualSelection.costumes;
@@ -138,21 +139,19 @@ const App: React.FC = () => {
         text = manualSelection.overlayTexts; 
       }
 
-      // 1. Image Prompt (Start Frame)
       const subject = theme === 'cute' && !startDesc.toLowerCase().includes('baby') && !startDesc.toLowerCase().includes('child') 
         ? `cute ${cat} and a baby` 
         : `cute ${cat}`;
 
-      const imagePrompt = `A photo of a ${subject} ${startDesc}, wearing ${cost}, in a ${loc}. ${style}. Highly detailed, photorealistic, 8k, trending on artstation --ar 9:16`;
+      // Optimized prompt for Imagen
+      const imagePrompt = `A vertical full-shot photo of a ${subject} ${startDesc}, wearing ${cost}, in a ${loc}. ${style}. Highly detailed, photorealistic, 8k, soft lighting, cinematic composition.`;
       
-      // 2. Motion Prompt for Kling
       const motionPrompt = `The ${subject} is ${startDesc}, then ${endDesc}. The movement is natural, funny, and realistic. Keep the ${loc} background consistent. High quality vertical video.`;
 
-      // YouTube Metadata
       const emoji = theme === 'funny' ? '😂😱' : '🥺❤️';
       const tagBase = theme === 'funny' 
         ? 'funny cats, cat fails, memes, funny animals, cat logic, cats' 
-        : 'cute cat, cat and baby, wholesome, adorable, heartwarming, kitty';
+        : 'cute cat, cat and baby, wholesome, adorable, heartwarming, kitty, funny baby';
         
       const youtubeTags = `shorts, cat, ${tagBase}, viral, fyp, ${cat.toLowerCase().replace(/,/g, '')}`;
 
@@ -179,14 +178,88 @@ const App: React.FC = () => {
       });
 
     } catch (err) {
-      // Error is already set in generateAIConcept if it was an API key issue
-      if (!error) {
-        // Fallback to manual data if it was just a generation glitch
-        console.log("Using fallback due to error");
-        // Re-run manual logic if AI fails (simplified for brevity: relying on next click or retry)
-      }
+      if (!error) console.log("Using fallback due to error");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const generateRealVideo = async () => {
+    if (!result) return;
+    setIsVideoGenerating(true);
+    setGenerationStatus('Initializing AI...');
+    setError(null);
+
+    try {
+      const ai = getAIClient();
+
+      // Step 1: Generate Image using Imagen 3
+      setGenerationStatus('Step 1/3: Generating Base Image (Imagen)...');
+      
+      // Note: Using imagen-3.0-generate-001 as per standard availability, 
+      // or imagen-4.0-generate-001 if available in your project.
+      // Adjust model name if needed based on your Google Cloud Project access.
+      const imageResponse = await ai.models.generateImages({
+        model: 'imagen-3.0-generate-001', 
+        prompt: result.imagePrompt,
+        config: {
+          numberOfImages: 1,
+          aspectRatio: '9:16',
+          outputMimeType: 'image/jpeg'
+        }
+      });
+
+      const generatedImageBase64 = imageResponse.generatedImages?.[0]?.image?.imageBytes;
+      
+      if (!generatedImageBase64) {
+        throw new Error("Failed to generate base image from Imagen.");
+      }
+
+      // Step 2: Generate Video using Veo
+      setGenerationStatus('Step 2/3: Generating Video (Veo) - This takes ~1-2 mins...');
+      
+      let operation = await ai.models.generateVideos({
+        model: 'veo-3.1-fast-generate-preview', // Using 'Fast' for speed
+        prompt: result.motionPrompt,
+        image: {
+          imageBytes: generatedImageBase64,
+          mimeType: 'image/jpeg',
+        },
+        config: {
+          numberOfVideos: 1,
+          resolution: '720p', // Current Veo preview limit usually
+          aspectRatio: '9:16'
+        }
+      });
+
+      // Step 3: Poll for completion
+      while (!operation.done) {
+        setGenerationStatus('Step 3/3: Rendering pixels... (Please wait)');
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5 seconds
+        operation = await ai.operations.getVideosOperation({operation: operation});
+      }
+
+      const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
+      if (!videoUri) {
+        throw new Error("Video generation completed but no URI returned.");
+      }
+
+      // Append API Key to fetch the blob securely
+      const videoFetchResponse = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
+      const videoBlob = await videoFetchResponse.blob();
+      const videoUrl = URL.createObjectURL(videoBlob);
+      
+      setGeneratedVideoUrl(videoUrl);
+      setGenerationStatus('Done! Ready to download.');
+
+    } catch (err: any) {
+      console.error("Video Generation Error:", err);
+      let errMsg = "Video generation failed.";
+      if (err.message.includes("404")) errMsg = "Model not found. Please check if 'imagen-3.0-generate-001' and 'veo-3.1' are enabled in your Google Cloud Project.";
+      if (err.message.includes("429")) errMsg = "Quota exceeded. Video generation is resource intensive.";
+      setError(errMsg + " (" + err.message + ")");
+    } finally {
+      setIsVideoGenerating(false);
     }
   };
 
@@ -232,7 +305,7 @@ const App: React.FC = () => {
               </div>
               <div className="ml-3">
                 <p className="text-sm text-red-700 font-medium">
-                  Configuration Error
+                  System Notification
                 </p>
                 <p className="text-sm text-red-600 mt-1">
                   {error}
@@ -262,7 +335,7 @@ const App: React.FC = () => {
               >
                 <Baby size={32} className={theme === 'cute' ? 'text-pink-500' : 'text-gray-300'} />
                 <span className="font-bold">Cute Kid Moment</span>
-                <span className="text-xs text-gray-400 font-normal">Wholesome, hugs, sweet</span>
+                <span className="text-xs text-gray-400 font-normal">Play, hugs, rivals</span>
               </button>
             </div>
           </div>
@@ -327,18 +400,60 @@ const App: React.FC = () => {
             </div>
           )}
 
-          <button
-            onClick={generateMeme}
-            disabled={isLoading}
-            className={`w-full text-white font-bold py-4 px-8 rounded-xl shadow-lg transform transition-all hover:-translate-y-1 active:translate-y-0 active:shadow-md flex items-center justify-center gap-3 text-lg disabled:opacity-70 disabled:cursor-not-allowed ${theme === 'funny' ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600' : 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600'}`}
-          >
-            {isLoading ? (
-               <><Loader2 size={24} className="animate-spin" /> Cooking up content...</>
-            ) : (
-               <><Sparkles size={24} className="animate-pulse" /> Generate {theme === 'funny' ? 'Viral Meme' : 'Cute Moment'}</>
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={generateMeme}
+              disabled={isLoading || isVideoGenerating}
+              className={`w-full text-white font-bold py-4 px-8 rounded-xl shadow-lg transform transition-all hover:-translate-y-1 active:translate-y-0 active:shadow-md flex items-center justify-center gap-3 text-lg disabled:opacity-70 disabled:cursor-not-allowed ${theme === 'funny' ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600' : 'bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600'}`}
+            >
+              {isLoading ? (
+                <><Loader2 size={24} className="animate-spin" /> Cooking up concept...</>
+              ) : (
+                <><Sparkles size={24} className="animate-pulse" /> Generate {theme === 'funny' ? 'Viral Meme' : 'Cute Moment'} Concept</>
+              )}
+            </button>
+
+            {result && (
+              <button
+                onClick={generateRealVideo}
+                disabled={isVideoGenerating}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isVideoGenerating ? (
+                  <><Loader2 size={20} className="animate-spin" /> {generationStatus}</>
+                ) : (
+                  <><Video size={20} /> Generate Real Video (BETA)</>
+                )}
+              </button>
             )}
-          </button>
+          </div>
         </div>
+
+        {/* Video Player */}
+        {generatedVideoUrl && (
+          <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-indigo-200 animate-in fade-in slide-in-from-bottom-8">
+             <div className="bg-indigo-600 px-4 py-3 flex items-center gap-2">
+                <Play className="text-white" size={20} />
+                <h3 className="font-bold text-white">Your Generated Video</h3>
+             </div>
+             <div className="p-4 flex flex-col items-center">
+                <video 
+                  src={generatedVideoUrl} 
+                  controls 
+                  autoPlay 
+                  loop 
+                  className="rounded-lg shadow-lg w-full max-w-[320px] aspect-[9/16] bg-black"
+                />
+                <a 
+                  href={generatedVideoUrl} 
+                  download={`cat-meme-${Date.now()}.mp4`}
+                  className="mt-4 flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-semibold"
+                >
+                  <Download size={20} /> Download Video
+                </a>
+             </div>
+          </div>
+        )}
 
         {/* Results */}
         {result && (
@@ -361,7 +476,7 @@ const App: React.FC = () => {
                 />
                 
                 <ResultCard 
-                  title="Kling AI Motion Prompt (Image-to-Video)" 
+                  title="Motion Prompt (Image-to-Video)" 
                   content={result.motionPrompt}
                   icon={<Video size={20} />}
                   onCopy={copyToClipboard}
